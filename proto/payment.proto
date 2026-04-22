@@ -8,6 +8,7 @@ import "google/protobuf/timestamp.proto";
 
 service PaymentService {
   rpc ProcessPayment(PaymentRequest) returns (PaymentResponse);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
 }
 
 message PaymentRequest {
@@ -21,4 +22,12 @@ message PaymentResponse {
   string transaction_id = 2;
   string message = 3;
   google.protobuf.Timestamp processed_at = 4;
+}
+
+message ListPaymentsRequest {
+  string status = 1;
+}
+
+message ListPaymentsResponse {
+  repeated PaymentResponse payments = 1;
 }
