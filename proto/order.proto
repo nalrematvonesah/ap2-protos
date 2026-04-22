@@ -1,22 +1,55 @@
-syntax = "proto3";
+package grpc
 
-package order;
+import (
+	"time"
+    "fmt"
+	orderpb "github.com/nalrematvonesah/ap2-generated/orderpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
 
-option go_package = "github.com/nalrematvonesah/ap2-generated/orderpb;orderpb";
-
-import "google/protobuf/timestamp.proto";
-
-service OrderService {
-  rpc SubscribeToOrderUpdates(OrderRequest)
-      returns (stream OrderStatusUpdate);
+type OrderUseCase interface {
+	GetByID(id string) (string, time.Time, error)
 }
 
-message OrderRequest {
-  int64 order_id = 1;
+type OrderHandler struct {
+	orderpb.UnimplementedOrderServiceServer
+	uc OrderUseCase
 }
 
-message OrderStatusUpdate {
-  int64 order_id = 1;
-  string status = 2;
-  google.protobuf.Timestamp updated_at = 3;
+func NewOrderHandler(uc OrderUseCase) *OrderHandler {
+	return &OrderHandler{uc: uc}
+}
+
+func intToString(id int64) string {
+	return fmt.Sprintf("%d", id)
+}
+
+func (h *OrderHandler) SubscribeToOrderUpdates(
+	req *orderpb.OrderRequest,
+	stream orderpb.OrderService_SubscribeToOrderUpdatesServer,
+) error {
+
+	orderID := req.OrderId
+
+	for {
+		order, err := h.uc.GetByID(intToString(orderID))
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(&orderpb.OrderStatusUpdate{
+			OrderId:   orderID,
+			Status:    order.Status,
+			UpdatedAt: timestamppb.New(time.Now()),
+		})
+		if err != nil {
+			return err
+		}
+
+		if order.Status == "Paid" || order.Status == "Failed" {
+			return nil
+		}
+
+		time.Sleep(2 * time.Second)
+	}
 }
